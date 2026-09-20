@@ -162,10 +162,20 @@ assert_output "subdirectory context" file "svc/api/Dockerfile" INPUT_CONTEXT=svc
 assert_output "explicit file wins" file "build/prod.Dockerfile" INPUT_FILE=build/prod.Dockerfile
 
 # Tag resolution
-assert_output "primary ref is the first derived tag" image-ref "docker.io/dbiagi/myapp:sha-abc1234"
+assert_output "image-ref is the sha tag" image-ref "docker.io/dbiagi/myapp:sha-abc1234"
+# metadata-action lists the branch tag before the sha tag, so the sha tag is not first.
+assert_output "image-ref is the sha tag even when a branch tag comes first" image-ref \
+  "docker.io/dbiagi/myapp:sha-abc1234" \
+  DERIVED_TAGS=$'docker.io/dbiagi/myapp:main\ndocker.io/dbiagi/myapp:sha-abc1234\ndocker.io/dbiagi/myapp:latest'
+assert_output "a branch merely named sha-<non-hex> is not mistaken for the sha tag" image-ref \
+  "docker.io/dbiagi/myapp:sha-abc1234" \
+  DERIVED_TAGS=$'docker.io/dbiagi/myapp:sha-fix\ndocker.io/dbiagi/myapp:sha-abc1234'
+assert_output "explicit tags: a sha tag wins over an earlier tag" image-ref \
+  "docker.io/dbiagi/myapp:sha-9f8e7d6" \
+  INPUT_TAGS=$'docker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:sha-9f8e7d6'
 assert_contains "derived tags are emitted" "docker.io/dbiagi/myapp:latest"
 assert_contains "derived tags block is exact" $'tags<<__TAGS_EOF__\ndocker.io/dbiagi/myapp:sha-abc1234\ndocker.io/dbiagi/myapp:latest\n__TAGS_EOF__'
-assert_output "explicit tags override derivation" image-ref "docker.io/dbiagi/myapp:nightly" \
+assert_output "image-ref falls back to the first tag when none is a sha tag" image-ref "docker.io/dbiagi/myapp:nightly" \
   INPUT_TAGS=$'docker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge'
 assert_contains "explicit tags suppress derived tags" "docker.io/dbiagi/myapp:edge" \
   INPUT_TAGS=$'docker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge'

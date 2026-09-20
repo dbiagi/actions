@@ -66,8 +66,9 @@ inputs:
 outputs:
   image-ref:
     description: >-
-      Primary fully-qualified image reference (the first tag). A moving branch or
-      PR tag on most events; use `digest` for an immutable reference.
+      Primary fully-qualified image reference: the immutable `sha-<short>` tag,
+      or the first tag when none is a sha tag. Use `digest` for a
+      content-addressed reference.
     value: ${{ steps.config.outputs.image-ref }}
   digest:
     description: Digest of the built image. Empty when `push` is false.

@@ -24,7 +24,7 @@ Build a Dockerfile and publish the image to any container registry.
 
 | Output | Description |
 |---|---|
-| `image-ref` | Primary fully-qualified image reference (the first tag). A moving branch or PR tag on most events; use `digest` for an immutable reference. |
+| `image-ref` | Primary fully-qualified image reference: the immutable `sha-<short>` tag, or the first tag when none is a sha tag. Use `digest` for a content-addressed reference. |
 | `digest` | Digest of the built image. Empty when `push` is false. |
 | `tags` | Newline-separated tags applied to the image. |
 | `metadata` | Raw buildx metadata JSON. |

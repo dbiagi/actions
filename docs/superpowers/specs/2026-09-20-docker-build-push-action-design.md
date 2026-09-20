@@ -150,10 +150,17 @@ from the same step at no extra cost.
 
 | Output | Notes |
 |---|---|
-| `image-ref` | Primary fully-qualified ref (first resolved tag) |
+| `image-ref` | Primary fully-qualified ref: the `sha-<short>` tag, or the first tag when none is a sha tag |
 | `digest` | Image digest from `build-push-action` |
 | `tags` | Newline-separated, as applied |
 | `metadata` | Raw buildx metadata JSON |
+
+`image-ref` is the `sha-<short>` tag rather than the first tag. `metadata-action`
+lists the branch or PR tag first, and that tag moves on every push, so a consumer
+that deploys `image-ref` would get a moving target. The sha tag is one per commit.
+It is immutable by convention, not by the registry: `digest` is the strictly
+content-addressed reference, and is empty when `push` is false. When `tags` is
+supplied and none is a sha tag, `image-ref` is the first tag.
 
 ### Usage
 
@@ -206,7 +213,7 @@ from the same step at no extra cost.
 5. **Metadata** — `docker/metadata-action`, skipped when `tags` was supplied.
 6. **Build and push** — `docker/build-push-action`, with `provenance: false`
    and `cache-from`/`cache-to` derived from `cache`.
-7. **Outputs** — bash step resolving `image-ref` from the first tag.
+7. **Outputs** — bash step resolving `image-ref`: the `sha-<short>` tag when present, else the first tag.
 
 ### Validation rules (step 1)
 

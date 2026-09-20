@@ -33,9 +33,18 @@ tags=$(printf '%s\n' "$tags" | sed '/^[[:space:]]*$/d')
   exit 1
 }
 
-# The primary reference is the first tag. Parameter expansion rather than a
-# pipeline, because `set -o pipefail` plus `head` can surface SIGPIPE as 141.
+# The primary reference is the sha tag (sha-<hex>), which is one per commit and
+# so does not move. metadata-action lists the branch tag first, which does move.
+# Fall back to the first tag when none is a sha tag (e.g. explicit `tags`).
+# Parameter expansion and a here-string rather than a pipeline, because
+# `set -o pipefail` plus `head` can surface SIGPIPE as 141.
 primary=${tags%%$'\n'*}
+while IFS= read -r tag; do
+  if [[ $tag =~ :sha-[0-9a-f]+$ ]]; then
+    primary=$tag
+    break
+  fi
+done <<<"$tags"
 
 case "$INPUT_CACHE" in
   gha)
