@@ -23,8 +23,10 @@ jobs:
       # actionlint validates workflow files. It does not validate a composite
       # action.yml, which is why Task 6 keeps a manual smoke test as the gate
       # before tagging a release.
+      # Dependabot's github-actions ecosystem does not update docker:// step
+      # references, so this digest is bumped by hand.
       - name: actionlint
-        uses: docker://rhysd/actionlint:1.7.12
+        uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # 1.7.12
         with:
           args: -color
 
