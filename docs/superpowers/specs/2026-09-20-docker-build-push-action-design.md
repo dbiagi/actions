@@ -138,9 +138,10 @@ When `tags` is empty, `docker/metadata-action` produces:
 | tag push `v1.2.3` | `1.2.3`, `1.2`, `1`, `latest` |
 | pull request | `pr-<number>` |
 
-`latest` is configured explicitly (`flavor: latest=false` plus a `type=raw`
-entry) rather than left to `latest=auto`, so it applies to both default-branch
-pushes and semver tags.
+`latest` comes from two places: `metadata-action`'s default `latest=auto`, which
+adds it for stable semver tag pushes and skips pre-releases such as
+`v1.2.3-rc1`, and an explicit `type=raw,value=latest,enable={{is_default_branch}}`
+entry for default-branch pushes.
 
 OCI labels (`org.opencontainers.image.source`, `.revision`, `.created`) come
 from the same step at no extra cost.
