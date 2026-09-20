@@ -1,0 +1,35 @@
+---
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: yamllint
+        run: |
+          pipx install yamllint
+          yamllint -c .yamllint.yml .
+
+      # actionlint validates workflow files. It does not validate a composite
+      # action.yml, which is why Task 6 keeps a manual smoke test as the gate
+      # before tagging a release.
+      - name: actionlint
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color
+
+      - name: shellcheck
+        run: shellcheck docker-build-push/scripts/*.sh docker-build-push/test/*.sh
+
+      - name: bash unit tests
+        run: bash docker-build-push/test/run.sh

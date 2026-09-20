@@ -1,0 +1,15 @@
+---
+version: 2
+
+updates:
+  # Workflows in .github/workflows
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+
+  # The composite action's own pinned docker/* dependencies
+  - package-ecosystem: github-actions
+    directory: "/docker-build-push"
+    schedule:
+      interval: weekly
