@@ -46,6 +46,16 @@ and cannot be wrapped or annotated inside a block scalar; and the natural
 pre-releases such as `v1.2.3-rc1`, which `latest=auto` correctly skips. The spec
 is updated to match.
 
+### 3. Login condition also requires credentials for registry cache
+The spec's condition `login == 'true' && (push == 'true' || cache == 'registry')`
+failed for `push: false` with `cache: registry` and no credentials: validation
+passes (credentials are only required when pushing), but the login step ran with
+empty values and `docker/login-action` errored. The condition is now
+`login == 'true' && (push == 'true' || (cache == 'registry' && username != ''))`.
+`resolve-config.sh` already drops `cache-to` when not pushing, so only a private
+cache read could need a login, and only when credentials were supplied. The spec
+is updated to match.
+
 ---
 
 ### Task 1: Repo scaffolding and lint CI

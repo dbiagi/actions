@@ -101,12 +101,14 @@ runs:
     - name: Set up Buildx
       uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-    # A registry cache write needs credentials even when nothing is pushed,
-    # which is why this is not tied to `push` alone.
+    # Log in when pushing, or when a registry cache is used AND credentials were
+    # actually supplied (a private cache read may need them). A build-only run
+    # with no credentials must not attempt a login.
     - name: Log in to registry
       if: >-
         inputs.login == 'true' &&
-        (inputs.push == 'true' || inputs.cache == 'registry')
+        (inputs.push == 'true' ||
+        (inputs.cache == 'registry' && inputs.username != ''))
       uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
       with:
         registry: ${{ inputs.registry }}

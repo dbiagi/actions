@@ -199,8 +199,10 @@ from the same step at no extra cost.
 3. **Buildx** — `docker/setup-buildx-action`, always; needed for cache and
    manifest lists.
 4. **Login** — `docker/login-action`, when
-   `login == 'true' && (push == 'true' || cache == 'registry')`. The registry-cache
-   case is why this is not tied to `push` alone.
+   `login == 'true' && (push == 'true' || (cache == 'registry' && username != ''))`.
+   The registry-cache case is why this is not tied to `push` alone, and the
+   `username` check is why it is not tied to `cache` alone: a build-only run
+   with no credentials must not try to log in.
 5. **Metadata** — `docker/metadata-action`, skipped when `tags` was supplied.
 6. **Build and push** — `docker/build-push-action`, with `provenance: false`
    and `cache-from`/`cache-to` derived from `cache`.
