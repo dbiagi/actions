@@ -1203,7 +1203,9 @@ Run it: `gh workflow run smoke-docker-build-push.yml && gh run watch`
 
 Expected: the run succeeds. Confirm in the log that the QEMU step ran (it must,
 since `platforms` is not the default), that both architectures were built, and
-that `image-ref` printed a `sha-` tag rather than an empty string.
+that `image-ref` printed the branch tag (`docker.io/dbiagi/smoke-test:<branch-slug>`;
+metadata-action sorts tags by priority, so it comes before `sha-`) rather than an
+empty string, and that the `tags` output contains a `sha-` entry.
 
 - [ ] **Step 6: Smoke test — a real push to Docker Hub**
 

@@ -212,11 +212,19 @@ from the same step at no extra cost.
 
 Each failure exits non-zero with a message naming the offending input:
 
-- `image` whose first path segment looks like a host (contains `.` or `:`) —
-  tell the caller to pass it via `registry`.
-- `push == 'true'` and `login == 'true'` with an empty `username` or `password` —
-  name which one is missing, and mention `push: false` for fork PRs.
+- `image` with a `/` whose first path segment looks like a host (contains `.` or
+  `:`) — tell the caller to pass it via `registry`.
+- `image` with no `/` but a `:` — it carries a tag; tell the caller tags are
+  derived or passed via `tags`.
+- empty `registry` — composite defaults do not apply to an explicitly empty value.
+- an empty `username` or `password` whenever the login step will run, mirroring
+  its condition (`login == 'true'` and either `push == 'true'` or a `registry`
+  cache with a `username` supplied) — name which one is missing, and mention
+  `push: false` for fork PRs.
 - `cache` outside `gha`, `registry`, `none`.
+
+The resolve step (after validation) also fails when no tags resolve, rather than
+handing buildx an empty tag list.
 
 QEMU and buildx setup cost 10–20 seconds. Failing before them turns a confusing
 deep Docker error into a one-line message.
