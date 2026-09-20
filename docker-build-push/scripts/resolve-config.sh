@@ -25,8 +25,13 @@ tags=$INPUT_TAGS
 if [ -z "${tags//[[:space:]]/}" ]; then
   tags=$DERIVED_TAGS
 fi
-# Strip leading and trailing blank lines so the first line is a real tag.
+# Drop blank lines so the first line is a real tag.
 tags=$(printf '%s\n' "$tags" | sed '/^[[:space:]]*$/d')
+
+[ -n "$tags" ] || {
+  echo "::error::No tags resolved. Provide 'tags' or let the action derive them." >&2
+  exit 1
+}
 
 # The primary reference is the first tag. Parameter expansion rather than a
 # pipeline, because `set -o pipefail` plus `head` can surface SIGPIPE as 141.

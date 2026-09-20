@@ -121,6 +121,40 @@ assert_not_contains() {
   fi
 }
 
+# Runs resolve-config.sh expecting a non-zero exit whose stderr contains the
+# given text. Extra arguments are KEY=VALUE overrides, as for resolve_with.
+assert_fails() {
+  local desc=$1 pattern=$2
+  shift 2
+  local out stderr status
+  out=$(mktemp)
+  stderr=$(
+    env \
+      INPUT_TAGS= \
+      DERIVED_TAGS=$'docker.io/dbiagi/myapp:sha-abc1234' \
+      INPUT_CONTEXT=. \
+      INPUT_FILE= \
+      INPUT_CACHE=gha \
+      INPUT_PUSH=true \
+      IMAGE_REF=docker.io/dbiagi/myapp \
+      GITHUB_OUTPUT="$out" \
+      "$@" \
+      bash "$RESOLVE" 2>&1 >/dev/null
+  )
+  status=$?
+  rm -f "$out"
+  if [ "$status" -eq 0 ]; then
+    echo "FAIL - $desc (expected non-zero exit, got 0)"
+    failures=$((failures + 1))
+  elif [[ "$stderr" != *"$pattern"* ]]; then
+    echo "FAIL - $desc (stderr did not contain '$pattern')"
+    echo "       stderr: $stderr"
+    failures=$((failures + 1))
+  else
+    echo "ok   - $desc"
+  fi
+}
+
 # Dockerfile path
 assert_output "file defaults to context Dockerfile" file "./Dockerfile"
 assert_output "trailing slash in context is not doubled" file "./Dockerfile" INPUT_CONTEXT=./
@@ -141,6 +175,10 @@ assert_not_contains "derived tags excluded when explicit given (no latest)" "doc
   INPUT_TAGS=$'docker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge'
 assert_contains "explicit tags block is exact" $'tags<<__TAGS_EOF__\ndocker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge\n__TAGS_EOF__' \
   INPUT_TAGS=$'docker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge'
+
+assert_fails "whitespace-only tags with nothing derived is an error" "No tags resolved" \
+  INPUT_TAGS=$'  \n\t\n' DERIVED_TAGS=
+assert_fails "empty tags with nothing derived is an error" "No tags resolved" DERIVED_TAGS=
 
 # Cache backends
 assert_output "gha cache reads from gha" cache-from "type=gha"
