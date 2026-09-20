@@ -59,11 +59,22 @@ assert_pass "login disabled needs no credentials" \
 assert_pass "single-segment image is allowed" INPUT_IMAGE=myapp
 assert_pass "registry cache backend is allowed" INPUT_CACHE=registry
 assert_pass "cache can be disabled" INPUT_CACHE=none
+assert_pass "dotted single-segment image is allowed" INPUT_IMAGE=my.app
+assert_pass "registry cache without push and without username needs no login" \
+  INPUT_PUSH=false INPUT_CACHE=registry INPUT_USERNAME= INPUT_PASSWORD=
+assert_pass "registry cache without push but with full credentials is allowed" \
+  INPUT_PUSH=false INPUT_CACHE=registry
+assert_pass "username without password is fine when no login will happen" \
+  INPUT_PUSH=false INPUT_CACHE=gha INPUT_PASSWORD=
 
 assert_fail "image carrying a registry host is rejected" "must not include the registry host" \
   INPUT_IMAGE=ghcr.io/dbiagi/myapp
 assert_fail "image carrying a host with a port is rejected" "must not include the registry host" \
   INPUT_IMAGE=localhost:5000/myapp
+assert_fail "image carrying a tag is rejected" "must not include a tag" INPUT_IMAGE=myapp:1.0
+assert_fail "empty registry is rejected" "'registry' must not be empty" INPUT_REGISTRY=
+assert_fail "registry cache with a username but no password is rejected" "'password' is required" \
+  INPUT_PUSH=false INPUT_CACHE=registry INPUT_PASSWORD=
 assert_fail "empty image is rejected" "'image' is required" INPUT_IMAGE=
 assert_fail "missing username is rejected" "'username' is required" INPUT_USERNAME=
 assert_fail "missing password is rejected" "'password' is required" INPUT_PASSWORD=

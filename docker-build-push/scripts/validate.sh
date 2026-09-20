@@ -25,13 +25,22 @@ require_bool() {
 : "${INPUT_CACHE:=}"
 
 [ -n "$INPUT_IMAGE" ] || fail "Input 'image' is required."
+[ -n "$INPUT_REGISTRY" ] || fail "Input 'registry' must not be empty."
 
 # The first path segment of a repository name cannot contain a dot or a colon;
-# if it does, the caller has passed a registry host in the wrong input.
-first_segment=${INPUT_IMAGE%%/*}
-case "$first_segment" in
-  *.* | *:*)
-    fail "Input 'image' must not include the registry host (got '$INPUT_IMAGE'). Pass the host in 'registry' and the repository path in 'image'."
+# if it does, the caller has passed a registry host in the wrong input. Only a
+# path with a '/' has a host segment; a slash-less name with a ':' carries a tag.
+case "$INPUT_IMAGE" in
+  */*)
+    first_segment=${INPUT_IMAGE%%/*}
+    case "$first_segment" in
+      *.* | *:*)
+        fail "Input 'image' must not include the registry host (got '$INPUT_IMAGE'). Pass the host in 'registry' and the repository path in 'image'."
+        ;;
+    esac
+    ;;
+  *:*)
+    fail "Input 'image' must not include a tag or digest (got '$INPUT_IMAGE'). Tags are derived, or pass them via 'tags'."
     ;;
 esac
 
@@ -43,9 +52,11 @@ case "$INPUT_CACHE" in
   *) fail "Input 'cache' must be one of 'gha', 'registry', 'none', got '$INPUT_CACHE'." ;;
 esac
 
-if [ "$INPUT_PUSH" = "true" ] && [ "$INPUT_LOGIN" = "true" ]; then
+# Mirrors the login condition in action.yml: the action logs in when pushing, or
+# when a registry cache is used with a username supplied.
+if [ "$INPUT_LOGIN" = "true" ] && { [ "$INPUT_PUSH" = "true" ] || { [ "$INPUT_CACHE" = "registry" ] && [ -n "$INPUT_USERNAME" ]; }; }; then
   [ -n "$INPUT_USERNAME" ] ||
-    fail "Input 'username' is required when pushing with login enabled. Pull requests from forks have no secrets - use 'push: false' there."
+    fail "Input 'username' is required when the action will log in (pushing, or using a registry cache with a username). Pull requests from forks have no secrets - use 'push: false' and leave 'username' empty."
   [ -n "$INPUT_PASSWORD" ] ||
-    fail "Input 'password' is required when pushing with login enabled. Pull requests from forks have no secrets - use 'push: false' there."
+    fail "Input 'password' is required when the action will log in (pushing, or using a registry cache with a username). Pull requests from forks have no secrets - use 'push: false' and leave 'username' empty."
 fi
