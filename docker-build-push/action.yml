@@ -65,10 +65,12 @@ inputs:
 
 outputs:
   image-ref:
-    description: Primary fully-qualified image reference (the first tag).
+    description: >-
+      Primary fully-qualified image reference (the first tag). A moving branch or
+      PR tag on most events; use `digest` for an immutable reference.
     value: ${{ steps.config.outputs.image-ref }}
   digest:
-    description: Digest of the built image.
+    description: Digest of the built image. Empty when `push` is false.
     value: ${{ steps.build.outputs.digest }}
   tags:
     description: Newline-separated tags applied to the image.

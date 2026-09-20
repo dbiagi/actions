@@ -24,8 +24,8 @@ Build a Dockerfile and publish the image to any container registry.
 
 | Output | Description |
 |---|---|
-| `image-ref` | Primary fully-qualified image reference (the first tag). |
-| `digest` | Digest of the built image. |
+| `image-ref` | Primary fully-qualified image reference (the first tag). A moving branch or PR tag on most events; use `digest` for an immutable reference. |
+| `digest` | Digest of the built image. Empty when `push` is false. |
 | `tags` | Newline-separated tags applied to the image. |
 | `metadata` | Raw buildx metadata JSON. |
 
@@ -43,9 +43,12 @@ When `tags` is not set, tags are derived from the git context:
 
 ## Usage
 
+Every example assumes the repository was checked out first with `actions/checkout`.
+
 ### Docker Hub, multi-architecture
 
 ```yaml
+- uses: actions/checkout@v7
 - uses: dbiagi/actions/docker-build-push@v1
   with:
     image: dbiagi/myapp
@@ -57,6 +60,8 @@ When `tags` is not set, tags are derived from the git context:
 ### GitHub Container Registry
 
 ```yaml
+# The image path must be lowercase; GHCR rejects `Owner/Repo`.
+# Pushing with GITHUB_TOKEN needs `permissions: packages: write` on the job.
 - uses: dbiagi/actions/docker-build-push@v1
   with:
     registry: ghcr.io
@@ -77,6 +82,7 @@ When `tags` is not set, tags are derived from the git context:
 ### A registry the caller authenticates itself
 
 ```yaml
+# Configure AWS credentials first (e.g. aws-actions/configure-aws-credentials).
 - uses: aws-actions/amazon-ecr-login@v2
 - uses: dbiagi/actions/docker-build-push@v1
   with:
