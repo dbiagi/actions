@@ -46,6 +46,7 @@ actions/
 │   ├── action.yml
 │   └── README.md               # inputs, outputs, examples per registry
 ├── docs/
+│   ├── knowledge/rules.md      # repo-wide conventions
 │   └── superpowers/specs/      # design docs
 ├── .yamllint.yml
 ├── README.md                   # index: one line per action
@@ -56,6 +57,24 @@ actions/
 Each action is a self-contained folder with its own README. The root README is
 an index. Future actions (`helm-release/`, `buildpack-publish/`) are added
 beside `docker-build-push/` with no change to existing files.
+
+### Action README
+
+Every action folder contains a `README.md`, kept as simple as possible. It has
+exactly two required parts:
+
+1. **Inputs** — a table of every input the action accepts, with its default and
+   a one-line description. Outputs get the same treatment when the action has
+   any.
+2. **Usage examples** — copy-pasteable `uses:` snippets covering the common
+   cases. For `docker-build-push` that means one per registry (Docker Hub,
+   GHCR, caller-authenticated) plus the `push: false` PR guard.
+
+Nothing else is required. No rationale, no design history, no exhaustive prose —
+that belongs in this spec. The README answers "what can I pass, and what does a
+working call look like", and stops there.
+
+This is a repo-wide rule, recorded in `docs/knowledge/rules.md`.
 
 ### Naming
 
