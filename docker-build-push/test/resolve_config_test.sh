@@ -7,7 +7,8 @@ RESOLVE="$TEST_DIR/../scripts/resolve-config.sh"
 
 failures=0
 
-# Runs resolve-config.sh against a temp GITHUB_OUTPUT and echoes the file.
+# Runs resolve-config.sh against a temp GITHUB_OUTPUT and echoes the file,
+# plus a marker line with the exit code.
 resolve_with() {
   local out
   out=$(mktemp)
@@ -24,8 +25,8 @@ resolve_with() {
     bash "$RESOLVE" >/dev/null 2>&1
   local status=$?
   cat "$out"
+  printf '__RESOLVE_EXIT_CODE__=%d\n' "$status"
   rm -f "$out"
-  return "$status"
 }
 
 # Reads a single-line key from GITHUB_OUTPUT-formatted text.
@@ -37,8 +38,27 @@ output_value() {
 assert_output() {
   local desc=$1 key=$2 expected=$3
   shift 3
-  local text actual
+  local text actual exit_code
   text=$(resolve_with "$@")
+
+  # Extract and remove exit code marker
+  exit_code=$(output_value '__RESOLVE_EXIT_CODE__' "$text")
+  text="${text%'__RESOLVE_EXIT_CODE__='*}"
+
+  # Fail if script exited non-zero
+  if [ "$exit_code" != "0" ]; then
+    echo "FAIL - $desc (script exited with status $exit_code)"
+    failures=$((failures + 1))
+    return
+  fi
+
+  # Check if key= line is present in output
+  if ! printf '%s\n' "$text" | grep -q "^${key}="; then
+    echo "FAIL - $desc ($key= line is missing)"
+    failures=$((failures + 1))
+    return
+  fi
+
   actual=$(output_value "$key" "$text")
   if [ "$actual" = "$expected" ]; then
     echo "ok   - $desc"
@@ -52,12 +72,50 @@ assert_output() {
 assert_contains() {
   local desc=$1 needle=$2
   shift 2
-  local text
+  local text exit_code
   text=$(resolve_with "$@")
+
+  # Extract and remove exit code marker
+  exit_code=$(output_value '__RESOLVE_EXIT_CODE__' "$text")
+  text="${text%'__RESOLVE_EXIT_CODE__='*}"
+
+  # Fail if script exited non-zero
+  if [ "$exit_code" != "0" ]; then
+    echo "FAIL - $desc (script exited with status $exit_code)"
+    failures=$((failures + 1))
+    return
+  fi
+
   if [[ "$text" == *"$needle"* ]]; then
     echo "ok   - $desc"
   else
     echo "FAIL - $desc (output did not contain '$needle')"
+    echo "       output: $text"
+    failures=$((failures + 1))
+  fi
+}
+
+assert_not_contains() {
+  local desc=$1 needle=$2
+  shift 2
+  local text exit_code
+  text=$(resolve_with "$@")
+
+  # Extract and remove exit code marker
+  exit_code=$(output_value '__RESOLVE_EXIT_CODE__' "$text")
+  text="${text%'__RESOLVE_EXIT_CODE__='*}"
+
+  # Fail if script exited non-zero
+  if [ "$exit_code" != "0" ]; then
+    echo "FAIL - $desc (script exited with status $exit_code)"
+    failures=$((failures + 1))
+    return
+  fi
+
+  if [[ "$text" != *"$needle"* ]]; then
+    echo "ok   - $desc"
+  else
+    echo "FAIL - $desc (output should NOT contain '$needle')"
     echo "       output: $text"
     failures=$((failures + 1))
   fi
@@ -72,9 +130,16 @@ assert_output "explicit file wins" file "build/prod.Dockerfile" INPUT_FILE=build
 # Tag resolution
 assert_output "primary ref is the first derived tag" image-ref "docker.io/dbiagi/myapp:sha-abc1234"
 assert_contains "derived tags are emitted" "docker.io/dbiagi/myapp:latest"
+assert_contains "derived tags block is exact" $'tags<<__TAGS_EOF__\ndocker.io/dbiagi/myapp:sha-abc1234\ndocker.io/dbiagi/myapp:latest\n__TAGS_EOF__'
 assert_output "explicit tags override derivation" image-ref "docker.io/dbiagi/myapp:nightly" \
   INPUT_TAGS=$'docker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge'
 assert_contains "explicit tags suppress derived tags" "docker.io/dbiagi/myapp:edge" \
+  INPUT_TAGS=$'docker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge'
+assert_not_contains "derived tags excluded when explicit given (no sha)" "docker.io/dbiagi/myapp:sha-abc1234" \
+  INPUT_TAGS=$'docker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge'
+assert_not_contains "derived tags excluded when explicit given (no latest)" "docker.io/dbiagi/myapp:latest" \
+  INPUT_TAGS=$'docker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge'
+assert_contains "explicit tags block is exact" $'tags<<__TAGS_EOF__\ndocker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge\n__TAGS_EOF__' \
   INPUT_TAGS=$'docker.io/dbiagi/myapp:nightly\ndocker.io/dbiagi/myapp:edge'
 
 # Cache backends
