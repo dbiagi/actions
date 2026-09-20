@@ -1,0 +1,163 @@
+---
+name: Docker Build and Push
+description: Build a Dockerfile and publish the image to any container registry.
+
+inputs:
+  image:
+    description: Repository path without the registry host, e.g. dbiagi/myapp.
+    required: true
+  registry:
+    description: Registry host, e.g. docker.io, ghcr.io, quay.io.
+    required: false
+    default: docker.io
+  tags:
+    description: >-
+      Newline-separated fully-qualified tags. When set, tag derivation is
+      skipped entirely.
+    required: false
+    default: ""
+  login:
+    description: >-
+      Whether to log in to the registry. Set false when the caller has already
+      authenticated, for example via OIDC for ECR or Artifact Registry.
+    required: false
+    default: "true"
+  username:
+    description: Registry username. Required when login and push are both true.
+    required: false
+    default: ""
+  password:
+    description: >-
+      Registry password or access token. Required when login and push are both
+      true.
+    required: false
+    default: ""
+  push:
+    description: >-
+      Whether to push the built image. When false the image is built and
+      validated only, and no credentials are needed.
+    required: false
+    default: "true"
+  context:
+    description: Build context path.
+    required: false
+    default: "."
+  file:
+    description: Dockerfile path. Defaults to <context>/Dockerfile.
+    required: false
+    default: ""
+  platforms:
+    description: Comma-separated target platforms, e.g. linux/amd64,linux/arm64.
+    required: false
+    default: linux/amd64
+  build-args:
+    description: Newline-separated KEY=value build arguments.
+    required: false
+    default: ""
+  build-secrets:
+    description: Newline-separated build secrets forwarded to buildx.
+    required: false
+    default: ""
+  cache:
+    description: Layer cache backend - gha, registry or none.
+    required: false
+    default: gha
+
+outputs:
+  image-ref:
+    description: Primary fully-qualified image reference (the first tag).
+    value: ${{ steps.config.outputs.image-ref }}
+  digest:
+    description: Digest of the built image.
+    value: ${{ steps.build.outputs.digest }}
+  tags:
+    description: Newline-separated tags applied to the image.
+    value: ${{ steps.config.outputs.tags }}
+  metadata:
+    description: Raw buildx metadata JSON.
+    value: ${{ steps.build.outputs.metadata }}
+
+runs:
+  using: composite
+  steps:
+    # Fails before QEMU and buildx setup, which cost 10-20 seconds.
+    - name: Validate inputs
+      shell: bash
+      env:
+        INPUT_IMAGE: ${{ inputs.image }}
+        INPUT_REGISTRY: ${{ inputs.registry }}
+        INPUT_PUSH: ${{ inputs.push }}
+        INPUT_LOGIN: ${{ inputs.login }}
+        INPUT_USERNAME: ${{ inputs.username }}
+        INPUT_PASSWORD: ${{ inputs.password }}
+        INPUT_CACHE: ${{ inputs.cache }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/validate.sh"
+
+    # Emulation is only needed for platforms the runner cannot execute natively.
+    - name: Set up QEMU
+      if: inputs.platforms != 'linux/amd64'
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+    - name: Set up Buildx
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+    # A registry cache write needs credentials even when nothing is pushed,
+    # which is why this is not tied to `push` alone.
+    - name: Log in to registry
+      if: >-
+        inputs.login == 'true' &&
+        (inputs.push == 'true' || inputs.cache == 'registry')
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+
+    - name: Derive tags and labels
+      id: meta
+      if: inputs.tags == ''
+      uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+      with:
+        images: ${{ inputs.registry }}/${{ inputs.image }}
+        # flavor keeps its default latest=auto, which adds `latest` for stable
+        # semver tag pushes (and skips pre-releases such as v1.2.3-rc1). The raw
+        # entry below adds it for default-branch pushes.
+        tags: |
+          type=sha,format=short,prefix=sha-
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Resolve build configuration
+      id: config
+      shell: bash
+      env:
+        INPUT_TAGS: ${{ inputs.tags }}
+        DERIVED_TAGS: ${{ steps.meta.outputs.tags }}
+        INPUT_CONTEXT: ${{ inputs.context }}
+        INPUT_FILE: ${{ inputs.file }}
+        INPUT_CACHE: ${{ inputs.cache }}
+        INPUT_PUSH: ${{ inputs.push }}
+        IMAGE_REF: ${{ inputs.registry }}/${{ inputs.image }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/resolve-config.sh"
+
+    - name: Build and push
+      id: build
+      uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ steps.config.outputs.file }}
+        platforms: ${{ inputs.platforms }}
+        push: ${{ inputs.push }}
+        tags: ${{ steps.config.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: ${{ inputs.build-args }}
+        secrets: ${{ inputs.build-secrets }}
+        cache-from: ${{ steps.config.outputs.cache-from }}
+        cache-to: ${{ steps.config.outputs.cache-to }}
+        # buildx attaches provenance by default; Docker Hub renders it as
+        # phantom unknown/unknown architecture rows next to the real platforms.
+        provenance: false
